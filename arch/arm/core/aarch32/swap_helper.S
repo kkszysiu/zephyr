@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013-2014 Wind River Systems, Inc.
  * Copyright (c) 2017-2019 Nordic Semiconductor ASA.
+ * Copyright (c) 2020 Stephanos Ioannidis <root@stephanos.io>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -29,6 +30,10 @@ GDATA(_k_neg_eagain)
 
 GDATA(_kernel)
 
+#if defined(CONFIG_THREAD_LOCAL_STORAGE) && defined(CONFIG_CPU_CORTEX_M)
+GDATA(z_arm_tls_ptr)
+#endif
+
 /**
  *
  * @brief PendSV exception handler, handling context switches
@@ -50,10 +55,10 @@ GDATA(_kernel)
 
 SECTION_FUNC(TEXT, z_arm_pendsv)
 
-#ifdef CONFIG_TRACING
+#ifdef CONFIG_INSTRUMENT_THREAD_SWITCHING
     /* Register the context switch */
     push {r0, lr}
-    bl sys_trace_thread_switched_out
+    bl z_thread_mark_switched_out
 #if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
     pop {r0, r1}
     mov lr, r1
@@ -88,7 +93,7 @@ SECTION_FUNC(TEXT, z_arm_pendsv)
     stmea r0!, {r3-r7}
 #elif defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE)
     stmia r0, {v1-v8, ip}
-#ifdef CONFIG_FP_SHARING
+#ifdef CONFIG_FPU_SHARING
     /* Assess whether switched-out thread had been using the FP registers. */
     ldr r0, =0x10 /* EXC_RETURN.F_Type Mask */
     tst lr, r0    /* EXC_RETURN & EXC_RETURN.F_Type_Msk */
@@ -107,11 +112,12 @@ out_fp_active:
 
 out_fp_endif:
     str r0, [r2, #_thread_offset_to_mode]
-#endif /* CONFIG_FP_SHARING */
+#endif /* CONFIG_FPU_SHARING */
 #elif defined(CONFIG_ARMV7_R)
     /* Store rest of process context */
-    mrs r12, SPSR
-    stm r0, {r4-r12,sp,lr}^
+    cps #MODE_SYS
+    stm r0, {r4-r11, sp}
+    cps #MODE_SVC
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -165,11 +171,36 @@ out_fp_endif:
     str v3, [v4, #0]
 #endif
 
+#if defined(CONFIG_THREAD_LOCAL_STORAGE)
+    /* Grab the TLS pointer */
+    ldr r4, =_thread_offset_to_tls
+    adds r4, r2, r4
+    ldr r0, [r4]
+
+#if defined(CONFIG_CPU_CORTEX_R)
+    /* Store TLS pointer in the "Process ID" register.
+     * This register is used as a base pointer to all
+     * thread variables with offsets added by toolchain.
+     */
+    mcr 15, 0, r0, cr13, cr0, 3
+#endif
+
+#if defined(CONFIG_CPU_CORTEX_M)
+    /* For Cortex-M, store TLS pointer in a global variable,
+     * as it lacks the process ID or thread ID register
+     * to be used by toolchain to access thread data.
+     */
+    ldr r4, =z_arm_tls_ptr
+    str r0, [r4]
+#endif
+
+#endif
+
     /* Restore previous interrupt disable state (irq_lock key)
      * (We clear the arch.basepri field after restoring state)
      */
-#if (defined(CONFIG_CPU_CORTEX_M0PLUS) || defined(CONFIG_CPU_CORTEX_M0)) && \
-	    _thread_offset_to_basepri > 124
+#if (defined(CONFIG_CPU_CORTEX_M0PLUS) || defined(CONFIG_CPU_CORTEX_M0) || \
+	defined(CONFIG_CPU_CORTEX_M1)) && _thread_offset_to_basepri > 124
     /* Doing it this way since the offset to thread->arch.basepri can in
      * some configurations be larger than the maximum of 124 for ldr/str
      * immediate offsets.
@@ -246,7 +277,7 @@ _thread_irq_disabled:
     /* restore BASEPRI for the incoming thread */
     msr BASEPRI, r0
 
-#ifdef CONFIG_FP_SHARING
+#ifdef CONFIG_FPU_SHARING
     /* Assess whether switched-in thread had been using the FP registers. */
     ldr r0, [r2, #_thread_offset_to_mode]
     tst r0, #0x04 /* thread.arch.mode & CONTROL.FPCA Msk */
@@ -315,9 +346,10 @@ _thread_irq_disabled:
     ldr r0, =_thread_offset_to_callee_saved
     add r0, r2
 
-    /* restore r4-r12 for incoming thread, plus system sp and lr */
-    ldm r0, {r4-r12,sp,lr}^
-    msr SPSR_fsxc, r12
+    /* restore r4-r11 and sp for incoming thread */
+    cps #MODE_SYS
+    ldm r0, {r4-r11, sp}
+    cps #MODE_SVC
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -334,22 +366,10 @@ _thread_irq_disabled:
     pop {r2, lr}
 #endif /* CONFIG_BUILTIN_STACK_GUARD */
 
-#ifdef CONFIG_EXECUTION_BENCHMARKING
-    push {r0, lr}
-    bl read_timer_end_of_swap
-#if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
-    pop {r0, r1}
-    mov lr,r1
-#else
-    pop {r0, lr}
-#endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
-
-#endif /* CONFIG_EXECUTION_BENCHMARKING */
-
-#ifdef CONFIG_TRACING
+#ifdef CONFIG_INSTRUMENT_THREAD_SWITCHING
     /* Register the context switch */
     push {r0, lr}
-    bl sys_trace_thread_switched_in
+    bl z_thread_mark_switched_in
 #if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
     pop {r0, r1}
     mov lr, r1
@@ -585,15 +605,21 @@ SECTION_FUNC(TEXT, z_arm_svc)
      * Save r12 and the lr as we could be swapping in another process and
      * returning to a different location.
      */
-    push {r4, r5}
-    mov r4, r12
-    mov r5, lr
-
+    srsdb #MODE_SYS!
     cps #MODE_SYS
-    stmdb sp!, {r0-r5}
+    push {r0-r3, r12, lr}
     cps #MODE_SVC
 
-    pop {r4, r5}
+    /* Align stack at double-word boundary */
+    and r3, sp, #4
+    sub sp, sp, r3
+    push {r2, r3}
+
+    /* Increment interrupt nesting count */
+    ldr r2, =_kernel
+    ldr r0, [r2, #_kernel_offset_to_nested]
+    add r0, r0, #1
+    str r0, [r2, #_kernel_offset_to_nested]
 
     /* Get SVC number */
     mrs r0, spsr
@@ -625,7 +651,6 @@ demux:
     blx z_irq_do_offload  /* call C routine which executes the offload */
 
     /* exception return is done in z_arm_int_exit() */
-    mov r0, #RET_FROM_SVC
     b z_arm_int_exit
 #endif
 
@@ -633,7 +658,6 @@ _context_switch:
     /* handler mode exit, to PendSV */
     bl z_arm_pendsv
 
-    mov r0, #RET_FROM_SVC
     b z_arm_int_exit
 
 _oops:

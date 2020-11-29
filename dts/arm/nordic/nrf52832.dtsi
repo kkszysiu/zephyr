@@ -6,6 +6,11 @@
 #include "nrf5_common.dtsi"
 
 / {
+	chosen {
+		zephyr,entropy = &rng;
+		zephyr,flash-controller = &flash_controller;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -17,34 +22,9 @@
 		};
 	};
 
-	aliases {
-		i2c-0 = &i2c0;
-		i2c-1 = &i2c1;
-		spi-0 = &spi0;
-		spi-1 = &spi1;
-		spi-2 = &spi2;
-		uart-0 = &uart0;
-		adc-0 = &adc;
-		gpio-0 = &gpio0;
-		gpiote-0 = &gpiote;
-		wdt-0 = &wdt;
-		pwm-0 = &pwm0;
-		pwm-1 = &pwm1;
-		pwm-2 = &pwm2;
-		qdec-0 = &qdec;
-		rtc-0 = &rtc0;
-		rtc-1 = &rtc1;
-		rtc-2 = &rtc2;
-		timer-0 = &timer0;
-		timer-1 = &timer1;
-		timer-2 = &timer2;
-		timer-3 = &timer3;
-		timer-4 = &timer4;
-	};
-
 	soc {
 
-		flash-controller@4001e000 {
+		flash_controller: flash-controller@4001e000 {
 			compatible = "nordic,nrf52-flash-controller";
 			reg = <0x4001e000 0x1000>;
 
@@ -177,6 +157,14 @@
 			label = "QDEC";
 		};
 
+		rng: random@4000d000 {
+			compatible = "nordic,nrf-rng";
+			reg = <0x4000d000 0x1000>;
+			interrupts = <13 1>;
+			status = "okay";
+			label = "RNG";
+		};
+
 		spi0: spi@40003000 {
 			/*
 			 * This spi node can be SPI, SPIM, or SPIS,
@@ -228,6 +216,7 @@
 		rtc0: rtc@4000b000 {
 			compatible = "nordic,nrf-rtc";
 			reg = <0x4000b000 0x1000>;
+			cc-num = <3>;
 			interrupts = <11 1>;
 			status = "okay";
 			clock-frequency = <32768>;
@@ -238,6 +227,7 @@
 		rtc1: rtc@40011000 {
 			compatible = "nordic,nrf-rtc";
 			reg = <0x40011000 0x1000>;
+			cc-num = <4>;
 			interrupts = <17 1>;
 			status = "okay";
 			clock-frequency = <32768>;
@@ -248,6 +238,7 @@
 		rtc2: rtc@40024000 {
 			compatible = "nordic,nrf-rtc";
 			reg = <0x40024000 0x1000>;
+			cc-num = <4>;
 			interrupts = <36 1>;
 			status = "okay";
 			clock-frequency = <32768>;
@@ -259,6 +250,7 @@
 			compatible = "nordic,nrf-timer";
 			status = "okay";
 			reg = <0x40008000 0x1000>;
+			cc-num = <4>;
 			interrupts = <8 1>;
 			prescaler = <0>;
 			label = "TIMER_0";
@@ -268,6 +260,7 @@
 			compatible = "nordic,nrf-timer";
 			status = "okay";
 			reg = <0x40009000 0x1000>;
+			cc-num = <4>;
 			interrupts = <9 1>;
 			prescaler = <0>;
 			label = "TIMER_1";
@@ -277,6 +270,7 @@
 			compatible = "nordic,nrf-timer";
 			status = "okay";
 			reg = <0x4000a000 0x1000>;
+			cc-num = <4>;
 			interrupts = <10 1>;
 			prescaler = <0>;
 			label = "TIMER_2";
@@ -286,6 +280,7 @@
 			compatible = "nordic,nrf-timer";
 			status = "okay";
 			reg = <0x4001a000 0x1000>;
+			cc-num = <6>;
 			interrupts = <26 1>;
 			prescaler = <0>;
 			label = "TIMER_3";
@@ -295,6 +290,7 @@
 			compatible = "nordic,nrf-timer";
 			status = "okay";
 			reg = <0x4001b000 0x1000>;
+			cc-num = <6>;
 			interrupts = <27 1>;
 			prescaler = <0>;
 			label = "TIMER_4";
@@ -308,7 +304,7 @@
 			label = "TEMP_0";
 		};
 
-		wdt: watchdog@40010000 {
+		wdt: wdt0: watchdog@40010000 {
 			compatible = "nordic,nrf-watchdog";
 			reg = <0x40010000 0x1000>;
 			interrupts = <16 1>;

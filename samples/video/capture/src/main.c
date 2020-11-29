@@ -13,10 +13,10 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(main);
 
+#define VIDEO_DEV_SW "VIDEO_SW_GENERATOR"
+
 #if defined(CONFIG_VIDEO_MCUX_CSI)
-#define VIDEO_DEV DT_VIDEO_MCUX_CSI_NAME
-#else
-#define VIDEO_DEV "VIDEO_SW_GENERATOR"
+#define VIDEO_DEV DT_LABEL(DT_INST(0, nxp_imx_csi))
 #endif
 
 void main(void)
@@ -24,17 +24,31 @@ void main(void)
 	struct video_buffer *buffers[2], *vbuf;
 	struct video_format fmt;
 	struct video_caps caps;
-	struct device *video;
+	const struct device *video;
 	unsigned int frame = 0;
 	size_t bsize;
 	int i = 0;
 
-	/* Retrieve video interface */
-	video = device_get_binding(VIDEO_DEV);
+	/* Default to software video pattern generator */
+	video = device_get_binding(VIDEO_DEV_SW);
 	if (video == NULL) {
-		LOG_ERR("Video device %s not found. Aborting test.", VIDEO_DEV);
+		LOG_ERR("Video device %s not found", VIDEO_DEV_SW);
 		return;
 	}
+
+	/* But would be better to use a real video device if any */
+#ifdef VIDEO_DEV
+	{
+		const struct device *dev = device_get_binding(VIDEO_DEV);
+
+		if (dev == NULL) {
+			LOG_ERR("Video device %s not found, "
+				"fallback to software generator.", VIDEO_DEV);
+		} else {
+			video = dev;
+		}
+	}
+#endif
 
 	printk("- Device name: %s\n", VIDEO_DEV);
 

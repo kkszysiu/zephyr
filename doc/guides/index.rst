@@ -10,6 +10,8 @@ User and Developer Guides
    beyond-GSG.rst
    bluetooth/index.rst
    build/index
+   coding_guidelines/index
+   design_guidelines.rst
    c_library
    ../README.rst
    documentation/index
@@ -20,14 +22,18 @@ User and Developer Guides
    device_mgmt/index
    device_mgmt/dfu
    dts/index
+   emulator/index.rst
    env_vars.rst
    coverage.rst
    kconfig/index
    modules.rst
    networking/index
+   platformio/index.rst
    portability/index.rst
    porting/index
    test/index
    tracing/index
    west/index
    optimizations/index
+   zephyr_cmake_package.rst
+   thread_local_storage.rst

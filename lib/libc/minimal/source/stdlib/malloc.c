@@ -12,10 +12,8 @@
 #include <sys/mempool.h>
 #include <string.h>
 #include <app_memory/app_memdomain.h>
-
-#define LOG_LEVEL CONFIG_KERNEL_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_DECLARE(os);
+LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
 #ifdef CONFIG_MINIMAL_LIBC_MALLOC
 
@@ -42,7 +40,7 @@ void *malloc(size_t size)
 	return ret;
 }
 
-static int malloc_prepare(struct device *unused)
+static int malloc_prepare(const struct device *unused)
 {
 	ARG_UNUSED(unused);
 
@@ -57,7 +55,7 @@ void *malloc(size_t size)
 {
 	ARG_UNUSED(size);
 
-	LOG_DBG("CONFIG_MINIMAL_LIBC_MALLOC_ARENA_SIZE is 0");
+	LOG_ERR("CONFIG_MINIMAL_LIBC_MALLOC_ARENA_SIZE is 0");
 	errno = ENOMEM;
 
 	return NULL;

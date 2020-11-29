@@ -27,8 +27,12 @@
 #include <sys/util.h>
 #include <sys/mempool_base.h>
 #include <kernel_structs.h>
+#ifdef CONFIG_MEM_POOL_HEAP_BACKEND
+#include <mempool_heap.h>
+#else
+#include <mempool_sys.h>
+#endif
 #include <kernel_version.h>
-#include <random/rand32.h>
 #include <syscall.h>
 #include <sys/printk.h>
 #include <arch/cpu.h>
@@ -37,5 +41,8 @@
 #include <spinlock.h>
 #include <fatal.h>
 #include <irq.h>
+#include <sys/thread_stack.h>
+#include <app_memory/mem_domain.h>
+#include <sys/kobject.h>
 
 #endif /* ZEPHYR_INCLUDE_KERNEL_INCLUDES_H_ */

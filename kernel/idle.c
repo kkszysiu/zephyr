@@ -11,6 +11,10 @@
 #include <wait_q.h>
 #include <power/power.h>
 #include <stdbool.h>
+#include <logging/log.h>
+#include <ksched.h>
+
+LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
 #ifdef CONFIG_TICKLESS_IDLE_THRESH
 #define IDLE_THRESH CONFIG_TICKLESS_IDLE_THRESH
@@ -63,7 +67,7 @@ void __attribute__((weak)) _sys_resume_from_deep_sleep(void)
  * @return N/A
  */
 #if !SMP_FALLBACK
-static void set_kernel_idle_time_in_ticks(s32_t ticks)
+static void set_kernel_idle_time_in_ticks(int32_t ticks)
 {
 #ifdef CONFIG_SYS_POWER_MANAGEMENT
 	_kernel.idle = ticks;
@@ -72,7 +76,7 @@ static void set_kernel_idle_time_in_ticks(s32_t ticks)
 
 static void sys_power_save_idle(void)
 {
-	s32_t ticks = z_get_next_timeout_expiry();
+	int32_t ticks = z_get_next_timeout_expiry();
 
 	/* The documented behavior of CONFIG_TICKLESS_IDLE_THRESH is
 	 * that the system should not enter a tickless idle for
@@ -113,7 +117,7 @@ static void sys_power_save_idle(void)
 }
 #endif
 
-void z_sys_power_save_idle_exit(s32_t ticks)
+void z_sys_power_save_idle_exit(int32_t ticks)
 {
 #if defined(CONFIG_SYS_POWER_SLEEP_STATES)
 	/* Some CPU low power states require notification at the ISR
@@ -137,21 +141,54 @@ void z_sys_power_save_idle_exit(s32_t ticks)
 #define IDLE_YIELD_IF_COOP() do { } while (false)
 #endif
 
-void idle(void *unused1, void *unused2, void *unused3)
+void idle(void *p1, void *unused2, void *unused3)
 {
-	ARG_UNUSED(unused1);
+	struct _cpu *cpu = p1;
+
 	ARG_UNUSED(unused2);
 	ARG_UNUSED(unused3);
 
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
 	/* record timestamp when idling begins */
 
-	extern u32_t z_timestamp_idle;
+	extern uint32_t z_timestamp_idle;
 
 	z_timestamp_idle = k_cycle_get_32();
 #endif
 
 	while (true) {
+		/* Lock interrupts to atomically check if to_abort is non-NULL,
+		 * and if so clear it
+		 */
+		int key = arch_irq_lock();
+		struct k_thread *to_abort = cpu->pending_abort;
+
+		if (to_abort) {
+			cpu->pending_abort = NULL;
+			arch_irq_unlock(key);
+
+			/* Safe to unlock interrupts here. We've atomically
+			 * checked and stashed cpu->pending_abort into a stack
+			 * variable. If we get preempted here and another
+			 * thread aborts, cpu->pending abort will get set
+			 * again and we'll handle it when the loop iteration
+			 * is continued below.
+			 */
+			LOG_DBG("idle %p aborting thread %p",
+				_current, to_abort);
+
+			z_thread_single_abort(to_abort);
+
+			/* We have to invoke this scheduler now. If we got
+			 * here, the idle thread preempted everything else
+			 * in order to abort the thread, and we now need to
+			 * figure out what to do next, it's not necessarily
+			 * the case that there are no other runnable threads.
+			 */
+			z_reschedule_unlocked();
+			continue;
+		}
+		arch_irq_unlock(key);
 #if SMP_FALLBACK
 		k_busy_wait(100);
 		k_yield();

@@ -7,7 +7,6 @@
 #include <zephyr.h>
 #include <sys/printk.h>
 #include <shell/shell.h>
-#include <shell/shell_uart.h>
 #include <version.h>
 #include <logging/log.h>
 #include <stdlib.h>
@@ -27,11 +26,11 @@ void timer_expired_handler(struct k_timer *timer)
 K_TIMER_DEFINE(log_timer, timer_expired_handler, NULL);
 
 static int cmd_log_test_start(const struct shell *shell, size_t argc,
-			      char **argv, u32_t period)
+			      char **argv, uint32_t period)
 {
 	ARG_UNUSED(argv);
 
-	k_timer_start(&log_timer, period, period);
+	k_timer_start(&log_timer, K_MSEC(period), K_MSEC(period));
 	shell_print(shell, "Log test started\n");
 
 	return 0;
@@ -98,6 +97,17 @@ static int cmd_demo_params(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_demo_hexdump(const struct shell *shell, size_t argc, char **argv)
+{
+	shell_print(shell, "argc = %d", argc);
+	for (size_t cnt = 0; cnt < argc; cnt++) {
+		shell_print(shell, "argv[%d]", cnt);
+		shell_hexdump(shell, argv[cnt], strlen(argv[cnt]));
+	}
+
+	return 0;
+}
+
 static int cmd_version(const struct shell *shell, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -108,7 +118,23 @@ static int cmd_version(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_dict(const struct shell *shell, size_t argc, char **argv,
+		    void *data)
+{
+	int val = (intptr_t)data;
+
+	shell_print(shell, "(syntax, value) : (%s, %d)", argv[0], val);
+
+	return 0;
+}
+
+SHELL_SUBCMD_DICT_SET_CREATE(sub_dict_cmds, cmd_dict,
+	(value_0, 0), (value_1, 1), (value_2, 2), (value_3, 3)
+);
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_demo,
+	SHELL_CMD(dictionary, &sub_dict_cmds, "Dictionary commands", NULL),
+	SHELL_CMD(hexdump, NULL, "Hexdump params command.", cmd_demo_hexdump),
 	SHELL_CMD(params, NULL, "Print params command.", cmd_demo_params),
 	SHELL_CMD(ping, NULL, "Ping command.", cmd_demo_ping),
 	SHELL_SUBCMD_SET_END /* Array terminated. */

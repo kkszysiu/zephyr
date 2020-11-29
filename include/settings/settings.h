@@ -17,8 +17,15 @@
 extern "C" {
 #endif
 
+
 /**
- * @defgroup settings Settings subsystem
+ * @defgroup file_system_storage File System Storage
+ * @{
+ * @}
+ */
+
+/**
+ * @defgroup settings Settings
  * @ingroup file_system_storage
  * @{
  */
@@ -56,7 +63,7 @@ typedef ssize_t (*settings_read_cb)(void *cb_arg, void *data, size_t len);
  */
 struct settings_handler {
 
-	char *name;
+	const char *name;
 	/**< Name of subtree. */
 
 	int (*h_get)(const char *key, char *val, int val_len_max);
@@ -122,7 +129,7 @@ struct settings_handler {
  */
 struct settings_handler_static {
 
-	char *name;
+	const char *name;
 	/**< Name of subtree. */
 
 	int (*h_get)(const char *key, char *val, int val_len_max);
@@ -351,7 +358,7 @@ int settings_commit_subtree(const char *subtree);
 
 /**
  * @defgroup settings_backend Settings backend interface
- * @ingroup file_system_storage
+ * @ingroup settings
  * @{
  */
 
@@ -560,7 +567,7 @@ int settings_name_next(const char *name, const char **next);
  *
  * @return 0 on success, non-zero on failure.
  */
-int settings_runtime_set(const char *name, void *data, size_t len);
+int settings_runtime_set(const char *name, const void *data, size_t len);
 
 /**
  * Get a value corresponding to a key from a module handler.

@@ -1,4 +1,4 @@
-.. _shell_label:
+.. _shell_api:
 
 Shell
 ######
@@ -15,8 +15,9 @@ set. You can use it in examples where more than simple button or LED user
 interaction is required. This module is a Unix-like shell with these features:
 
 * Support for multiple instances.
-* Advanced cooperation with the :ref:`logger`.
+* Advanced cooperation with the :ref:`logging_api`.
 * Support for static and dynamic commands.
+* Support for dictionary commands.
 * Smart command completion with the :kbd:`Tab` key.
 * Built-in commands: :command:`clear`, :command:`shell`, :command:`colors`,
   :command:`echo`, :command:`history` and :command:`resize`.
@@ -34,8 +35,11 @@ interaction is required. This module is a Unix-like shell with these features:
 The module can be connected to any transport for command input and output.
 At this point, the following transport layers are implemented:
 
-* UART
 * Segger RTT
+* SMP
+* Telnet
+* UART
+* USB
 * DUMMY - not a physical transport layer
 
 Connecting to Segger RTT via TCP (on macOS, for example)
@@ -75,6 +79,7 @@ types:
 * Dynamic subcommand (level > 0): Number and syntax does not need to be known
   during compile time. Created in the software module.
 
+
 Creating commands
 =================
 
@@ -99,6 +104,8 @@ Use the following macros for adding shell commands:
 * :c:macro:`SHELL_EXPR_CMD_ARG` - Initialize a command with arguments if compile
   time expression is non-zero.
 * :c:macro:`SHELL_STATIC_SUBCMD_SET_CREATE` - Create a static subcommands
+  array.
+* :c:macro:`SHELL_SUBCMD_DICT_SET_CREATE` - Create a dictionary subcommands
   array.
 * :c:macro:`SHELL_DYNAMIC_CMD_CREATE` - Create a dynamic subcommands array.
 
@@ -131,6 +138,52 @@ subcommands.
 Example implementation can be found under following location:
 :zephyr_file:`samples/subsys/shell/shell_module/src/main.c`.
 
+Dictionary commands
+===================
+This is a special kind of static commands. Dictionary commands can be used
+every time you want to use a pair: (string <-> corresponding data) in
+a command handler. The string is usually a verbal description of a given data.
+The idea is to use the string as a command syntax that can be prompted by the
+shell and corresponding data can be used to process the command.
+
+Let's use an example. Suppose you created a command to set an ADC gain.
+It is a perfect place where a dictionary can be used. The dictionary would
+be a set of pairs: (string: gain_value, int: value) where int value could
+be used with the ADC driver API.
+
+Abstract code for this task would look like this:
+
+.. code-block:: c
+
+        static int gain_cmd_handler(const struct shell *shell,
+                                    size_t argc, char **argv, void *data)
+        {
+                int gain;
+
+                /* data is a value corresponding to called command syntax */
+                gain = (int)data;
+                adc_set_gain(gain);
+
+                shell_print(shell, "ADC gain set to: %s\n"
+                                   "Value send to ADC driver: %d",
+                                   argv[0],
+                                   gain);
+
+                return 0;
+        }
+
+        SHELL_SUBCMD_DICT_SET_CREATE(sub_gain, gain_cmd_handler,
+                (gain_1, 1), (gain_2, 2), (gain_1_2, 3), (gain_1_4, 4)
+        );
+        SHELL_CMD_REGISTER(gain, &sub_gain, "Set ADC gain", NULL);
+
+
+This is how it would look like in the shell:
+
+.. image:: images/dict_cmd.png
+      :align: center
+      :alt: Dictionary commands example.
+
 Dynamic commands
 ----------------
 
@@ -154,7 +207,7 @@ Newly added commands can be prompted or autocompleted with the :kbd:`Tab` key.
 	static char dynamic_cmd_buffer[10][50];
 
 	/* commands counter */
-	static u8_t dynamic_cmd_cnt;
+	static uint8_t dynamic_cmd_cnt;
 
 	/* Function returning command dynamically created
 	 * in  dynamic_cmd_buffer.
@@ -205,7 +258,7 @@ handler) are passed as arguments. Characters within parentheses are treated
 as one argument. If shell wont find a handler it will display an error message.
 
 Commands can be also executed from a user application using any active backend
-and a function :cpp:func:`shell_execute_cmd`, as shown in this example:
+and a function :c:func:`shell_execute_cmd`, as shown in this example:
 
 .. code-block:: c
 
@@ -249,11 +302,11 @@ Simple command handler implementation:
 		return 0;
 	}
 
-Function :cpp:func:`shell_fprintf` or the shell print macros:
+Function :c:func:`shell_fprintf` or the shell print macros:
 :c:macro:`shell_print`, :c:macro:`shell_info`, :c:macro:`shell_warn` and
 :c:macro:`shell_error` can be used from the command handler or from threads,
 but not from an interrupt context. Instead, interrupt handlers should use
-:ref:`logger` for printing.
+:ref:`logging_api` for printing.
 
 Command help
 ------------
@@ -465,7 +518,7 @@ the shell will only print the subcommands registered for this command:
 Shell as the logger backend
 ***************************
 
-Shell instance can act as the :ref:`logger` backend. Shell ensures that log
+Shell instance can act as the :ref:`logging_api` backend. Shell ensures that log
 messages are correctly multiplexed with shell output. Log messages from logger
 thread are enqueued and processed in the shell thread. Logger thread will block
 for configurable amount of time if queue is full, blocking logger thread context

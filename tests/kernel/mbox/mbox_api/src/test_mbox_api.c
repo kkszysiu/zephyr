@@ -6,14 +6,13 @@
 
 #include <ztest.h>
 
-#define TIMEOUT 100
+#define TIMEOUT K_MSEC(100)
 #if !defined(CONFIG_BOARD_QEMU_X86)
 #define STACK_SIZE (512 + CONFIG_TEST_EXTRA_STACKSIZE)
 #else
 #define STACK_SIZE (640 + CONFIG_TEST_EXTRA_STACKSIZE)
 #endif
 #define MAIL_LEN 64
-
 /**TESTPOINT: init via K_MBOX_DEFINE*/
 K_MBOX_DEFINE(kmbox);
 K_MEM_POOL_DEFINE(mpooltx, 8, MAIL_LEN, 1, 4);
@@ -61,6 +60,9 @@ static char data[MAX_INFO_TYPE][MAIL_LEN] = {
 	"specify target/source thread, using a buffer",
 	"specify target/source thread, using a memory block"
 };
+
+static char big_msg_data[256]
+	= "Large message buffer, too big for mem_pool to receive";
 
 static void async_put_sema_give(void *p1, void *p2, void *p3)
 {
@@ -119,7 +121,7 @@ static void tmbox_put(struct k_mbox *pmbox)
 		k_mbox_put(pmbox, &mmsg, K_FOREVER);
 		break;
 	case PUT_GET_BUFFER:
-	/*fall through*/
+		__fallthrough;
 	case TARGET_SOURCE_THREAD_BUFFER:
 		/**TESTPOINT: mbox sync put buffer*/
 		mmsg.info = PUT_GET_BUFFER;
@@ -143,7 +145,7 @@ static void tmbox_put(struct k_mbox *pmbox)
 		k_sem_take(&sync_sema, K_FOREVER);
 		break;
 	case ASYNC_PUT_GET_BLOCK:
-	/*fall through*/
+		__fallthrough;
 	case TARGET_SOURCE_THREAD_BLOCK:
 		/**TESTPOINT: mbox async put mem block*/
 		mmsg.info = ASYNC_PUT_GET_BLOCK;
@@ -199,8 +201,8 @@ static void tmbox_put(struct k_mbox *pmbox)
 		 * but size is bigger than what the mem_pool can handle at
 		 * that point of time
 		 */
-		mmsg.size = sizeof(data[1]) * 2;
-		mmsg.tx_data = data[1];
+		mmsg.size = sizeof(big_msg_data);
+		mmsg.tx_data = big_msg_data;
 		mmsg.tx_block.data = NULL;
 		mmsg.tx_target_thread = K_ANY;
 		zassert_true(k_mbox_put(pmbox, &mmsg, TIMEOUT) == 0, NULL);
@@ -314,7 +316,7 @@ static void tmbox_get(struct k_mbox *pmbox)
 		zassert_equal(mmsg.size, 0, NULL);
 		break;
 	case PUT_GET_BUFFER:
-	/*fall through*/
+		__fallthrough;
 	case TARGET_SOURCE_THREAD_BUFFER:
 		/**TESTPOINT: mbox sync get buffer*/
 		mmsg.size = sizeof(rxdata);
@@ -344,7 +346,7 @@ static void tmbox_get(struct k_mbox *pmbox)
 			     NULL);
 		break;
 	case ASYNC_PUT_GET_BLOCK:
-	/*fall through*/
+		__fallthrough;
 	case TARGET_SOURCE_THREAD_BLOCK:
 		/**TESTPOINT: mbox async get mem block*/
 		mmsg.size = MAIL_LEN;
@@ -414,7 +416,7 @@ static void tmbox_get(struct k_mbox *pmbox)
 		 * pool block via data_block_get
 		 */
 		mmsg.rx_source_thread = K_ANY;
-		mmsg.size = MAIL_LEN * 2;
+		mmsg.size = sizeof(big_msg_data);
 		zassert_true(k_mbox_get(pmbox, &mmsg, NULL, K_FOREVER) == 0,
 			     NULL);
 
@@ -498,7 +500,7 @@ static void tmbox_get(struct k_mbox *pmbox)
 		break;
 	case MULTIPLE_WAITING_GET:
 		/* Create 5 threads who will wait on a mbox_get. */
-		for (u32_t i = 0; i < 5; i++) {
+		for (uint32_t i = 0; i < 5; i++) {
 			k_thread_create(&waiting_get_tid[i],
 					waiting_get_stack[i],
 					STACK_SIZE,
@@ -559,6 +561,58 @@ void test_mbox_kdefine(void)
 {
 	info_type = PUT_GET_NULL;
 	tmbox(&kmbox);
+}
+
+/**
+ *
+ * @brief Test mailbox enhance capabilities
+ *
+ * @details
+ * - Define and initilized a message queue and a mailbox
+ * - Verify the capability of message queue and mailbox
+ * - with same data.
+ *
+ */
+void test_enhance_capability(void)
+{
+	info_type = ASYNC_PUT_GET_BUFFER;
+	struct k_msgq msgq;
+
+	ZTEST_BMEM char __aligned(4) buffer[8];
+	k_msgq_init(&msgq, buffer, 4, 2);
+	/* send buffer with message queue */
+	int ret = k_msgq_put(&msgq, &data[info_type], K_NO_WAIT);
+
+	zassert_equal(ret, 0, "message queue put successful");
+
+	/* send same buffer with mailbox */
+	tmbox(&mbox);
+}
+
+/*
+ *
+ * @brife Test any number of mailbox can be defined
+ *
+ * @details
+ * - Define multi mailbox and verify the mailbox whether as
+ *   expected
+ * - Verify the mailbox can be used
+ *
+ */
+void test_define_multi_mbox(void)
+{
+	/**TESTPOINT: init via k_mbox_init*/
+	struct k_mbox mbox1, mbox2, mbox3;
+
+	k_mbox_init(&mbox1);
+	k_mbox_init(&mbox2);
+	k_mbox_init(&mbox3);
+
+	/* verify via send message */
+	info_type = PUT_GET_NULL;
+	tmbox(&mbox1);
+	tmbox(&mbox2);
+	tmbox(&mbox3);
 }
 
 void test_mbox_put_get_null(void)

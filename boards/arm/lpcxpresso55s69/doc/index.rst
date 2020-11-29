@@ -62,16 +62,36 @@ features:
 +-----------+------------+-------------------------------------+
 | GPIO      | on-chip    | gpio                                |
 +-----------+------------+-------------------------------------+
+| I2C       | on-chip    | i2c                                 |
++-----------+------------+-------------------------------------+
 | SPI       | on-chip    | spi                                 |
 +-----------+------------+-------------------------------------+
 | USART     | on-chip    | serial port-polling                 |
++-----------+------------+-------------------------------------+
+| WWDT      | on-chip    | windowed watchdog timer             |
++-----------+------------+-------------------------------------+
+| TrustZone | on-chip    | Trusted Firmware-M                  |
++-----------+------------+-------------------------------------+
+| ADC       | on-chip    | adc                                 |
++-----------+------------+-------------------------------------+
+| CLOCK     | on-chip    | clock_control                       |
 +-----------+------------+-------------------------------------+
 
 The default configuration file
 ``boards/arm/lpcxpresso55s69/lpcxpresso55s69_cpu0_defconfig``
 only enables the first core.
 
-Other hardware features are not currently supported by the port.
+Other hardware features are not currently enabled such as dual core or secure/non-secure.
+
+Targets available for this board are:
+
+- *lpcxpresso55s69_cpu0* secure (S) address space for CPU0
+- *lpcxpresso55s69_ns* non-secure (NS) address space for CPU0
+- *lpcxpresso55s69_cpu1* CPU1 target, NS only
+
+CPU0 is the only target that can run standalone.
+NS target for CPU0 does not work correctly without a secure image enabling it.
+CPU1 does not work without CPU0 enabling it.
 
 Connections and IOs
 ===================
@@ -99,6 +119,10 @@ functionality of a pin.
 | PIO1_6  | GPIO            | BLUE_LED                   |
 +---------+-----------------+----------------------------+
 | PIO1_7  | GPIO            | GREEN LED                  |
++---------+-----------------+----------------------------+
+| PIO1_20 | I2C             | I2C SCL                    |
++---------+-----------------+----------------------------+
+| PIO1_21 | I2C             | I2C SDA                    |
 +---------+-----------------+----------------------------+
 
 System Clock
@@ -175,6 +199,21 @@ see the following message in the terminal:
    ***** Booting Zephyr OS v1.14.0 *****
    Hello World! lpcxpresso55s69_cpu0
 
+Building and flashing secure/non-secure with Arm |reg| TrustZone |reg|
+----------------------------------------------------------------------
+The TF-M integration samples can be run using the ``lpcxpresso55s69_ns`` target.
+Next we need to manually flash the secure (``tfm_s.hex``)
+and non-secure (``zephyr.hex``) images wth a J-Link as follows:
+
+.. code-block:: console
+
+   JLinkExe -device lpc55s69 -if swd -speed 2000 -autoconnect 1
+   J-Link>loadfile build/tfm/install/outputs/LPC55S69/tfm_s.hex
+   J-Link>loadfile build/zephyr/zephyr.hex
+
+NOTE: At present, the LPC55S69 doesn't include support for the MCUBoot bootloader.
+We need to reset the board manually after flashing the image to run this code.
+
 Debugging
 =========
 
@@ -201,7 +240,7 @@ should see the following message in the terminal:
    https://www.nxp.com/docs/en/data-sheet/LPC55S6x.pdf
 
 .. _LPC55S69 Reference Manual:
-   https://www.nxp.com/docs/en/user-guide/UM11126.pdf
+   https://www.nxp.com/webapp/Download?colCode=UM11126
 
 .. _LPCXPRESSO55S69 Website:
    https://www.nxp.com/products/processors-and-microcontrollers/arm-based-processors-and-mcus/lpc-cortex-m-mcus/lpc5500-cortex-m33/lpcxpresso55s69-development-board:LPC55S69-EVK

@@ -24,6 +24,9 @@
 
 #include <stm32g0xx.h>
 
+/* Add include for DTS generated information */
+#include <st_stm32_dt.h>
+
 #include <stm32g0xx_ll_system.h>
 
 #ifdef CONFIG_CLOCK_CONTROL_STM32_CUBE
@@ -44,17 +47,21 @@
 #include <stm32g0xx_ll_i2c.h>
 #endif
 
-#ifdef CONFIG_WWDG_STM32
-#include <stm32g0xx_ll_wwdg.h>
+#ifdef CONFIG_IWDG_STM32
+#include <stm32g0xx_ll_iwdg.h>
 #endif
 
-#ifdef CONFIG_SERIAL_HAS_DRIVER
-#include <stm32g0xx_ll_usart.h>
+#ifdef CONFIG_WWDG_STM32
+#include <stm32g0xx_ll_wwdg.h>
 #endif
 
 #ifdef CONFIG_HWINFO_STM32
 #include <stm32g0xx_ll_utils.h>
 #endif
+
+#ifdef CONFIG_PWM_STM32
+#include <stm32g0xx_ll_tim.h>
+#endif /* CONFIG_PWM_STM32 */
 
 /* Add include for DTS generated information */
 #include <devicetree.h>

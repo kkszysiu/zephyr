@@ -42,7 +42,7 @@ K_SEM_DEFINE(end_sema, 0, 1);
 #endif
 K_MEM_POOL_DEFINE(test_pool, SZ, SZ, 4, 4);
 
-static void tpipe_put(struct k_pipe *ppipe, int timeout)
+static void tpipe_put(struct k_pipe *ppipe, k_timeout_t timeout)
 {
 	size_t to_wt, wt_byte = 0;
 
@@ -57,7 +57,7 @@ static void tpipe_put(struct k_pipe *ppipe, int timeout)
 }
 
 static void tpipe_block_put(struct k_pipe *ppipe, struct k_sem *sema,
-			    int timeout)
+			    k_timeout_t timeout)
 {
 	struct k_mem_block block;
 
@@ -69,11 +69,13 @@ static void tpipe_block_put(struct k_pipe *ppipe, struct k_sem *sema,
 		k_pipe_block_put(ppipe, &block, BYTES_TO_WRITE, sema);
 		if (sema) {
 			k_sem_take(sema, K_FOREVER);
+			zassert_not_equal(memcmp(block.data, &data[i], BYTES_TO_WRITE), 0,
+					"block should be freed after k_pipe_block_put.");
 		}
 	}
 }
 
-static void tpipe_get(struct k_pipe *ppipe, int timeout)
+static void tpipe_get(struct k_pipe *ppipe, k_timeout_t timeout)
 {
 	unsigned char rx_data[PIPE_LEN];
 	size_t to_rd, rd_byte = 0;
@@ -174,8 +176,48 @@ static void thread_for_block_put(void *p1, void *p2, void *p3)
 
 /**
  * @brief Test pipe data passing between threads
+ *
+ * @ingroup kernel_pipe_tests
+ *
+ * @details
+ * Test Objective:
+ * - Verify data passing with "pipe put/get" APIs between
+ * threads
+ *
+ * Testing techniques:
+ * - function and block box testing,Interface testing,
+ * Dynamic analysis and testing.
+ *
+ * Prerequisite Conditions:
+ * - CONFIG_TEST_USERSPACE.
+ *
+ * Input Specifications:
+ * - N/A
+ *
+ * Test Procedure:
+ * -# Initialize a pipe, which is defined at run time.
+ * -# Create a thread (A).
+ * -# In A thread, check if it can get data, which is sent
+ * by main thread via the pipe.
+ * -# In A thread, send data to main thread via the pipe.
+ * -# In main thread, send data to A thread  via the pipe.
+ * -# In main thread, check if it can get data, which is sent
+ * by A thread.
+ * -# Do the same testing with a pipe, which is defined at compile
+ * time
+ *
+ * Expected Test Result:
+ * - Data can be sent/received between threads.
+ *
+ * Pass/Fail Criteria:
+ * - Successful if check points in test procedure are all passed, otherwise failure.
+ *
+ * Assumptions and Constraints:
+ * - N/A
+ *
  * @see k_pipe_init(), k_pipe_put(), #K_PIPE_DEFINE(x)
  */
+
 void test_pipe_thread2thread(void)
 {
 	/**TESTPOINT: test k_pipe_init pipe*/
@@ -194,21 +236,24 @@ void test_pipe_thread2thread(void)
  */
 void test_pipe_user_thread2thread(void)
 {
-	/**TESTPOINT: test k_pipe_init pipe*/
-
+	/**TESTPOINT: test k_object_alloc pipe*/
 	struct k_pipe *p = k_object_alloc(K_OBJ_PIPE);
 
 	zassert_true(p != NULL, NULL);
-	zassert_false(k_pipe_alloc_init(p, PIPE_LEN), NULL);
-	tpipe_thread_thread(&pipe);
 
-	/**TESTPOINT: test K_PIPE_DEFINE pipe*/
-	tpipe_thread_thread(&kpipe);
+	/**TESTPOINT: test k_pipe_alloc_init*/
+	zassert_false(k_pipe_alloc_init(p, PIPE_LEN), NULL);
+	tpipe_thread_thread(p);
+
 }
 #endif
 
 /**
  * @brief Test pipe put of blocks
+ * @details Check if kernel support sending a kernel
+ * memory block into a pipe.
+ * - Using a sub thread to put blcok data to pipe
+ * - Get the pipe data and verify it
  * @see k_pipe_block_put()
  */
 void test_pipe_block_put(void)
@@ -228,6 +273,40 @@ void test_pipe_block_put(void)
 
 /**
  * @brief Test pipe block put with semaphore
+ *
+ * @ingroup kernel_pipe_tests
+ *
+ * @details
+ * Test Objective:
+ * - Check if kernel support sending a kernel
+ * memory block into a pipe.
+ *
+ * Testing techniques:
+ * - function and block box testing,Interface testing,
+ * Dynamic analysis and testing.
+ *
+ * Prerequisite Conditions:
+ * - CONFIG_TEST_USERSPACE.
+ *
+ * Input Specifications:
+ * - N/A
+ *
+ * Test Procedure:
+ * -# Create a sub thread to put blcok data to pipe.
+ * and check the return of k_mem_pool_alloc.
+ * -# Check if the block be freed after pip put.
+ * -# Get the pipe data and check if the data equals the
+ * put data.
+ *
+ * Expected Test Result:
+ * - Pipe can send a memory block into a pipe.
+ *
+ * Pass/Fail Criteria:
+ * - Successful if check points in test procedure are all passed, otherwise failure.
+ *
+ * Assumptions and Constraints:
+ * - N/A
+ *
  * @see k_pipe_block_put()
  */
 void test_pipe_block_put_sema(void)
@@ -312,23 +391,31 @@ void test_half_pipe_get_put(void)
  */
 void test_half_pipe_saturating_block_put(void)
 {
-	int r[3];
-	struct k_mem_block blocks[3];
+	int nb;
+	struct k_mem_block blocks[16];
 
 	/**TESTPOINT: thread-thread data passing via pipe*/
 	k_tid_t tid = k_thread_create(&tdata, tstack, STACK_SIZE,
 				      tThread_half_pipe_block_put, &khalfpipe,
-				      NULL, NULL, K_PRIO_PREEMPT(0), 0, 0);
+				      NULL, NULL, K_PRIO_PREEMPT(0), 0,
+				      K_NO_WAIT);
 
-	k_sleep(10);
+	k_msleep(10);
 
 	/* Ensure half the mempool is still queued in the pipe */
-	r[0] = k_mem_pool_alloc(&mpool, &blocks[0], BYTES_TO_WRITE, K_NO_WAIT);
-	r[1] = k_mem_pool_alloc(&mpool, &blocks[1], BYTES_TO_WRITE, K_NO_WAIT);
-	r[2] = k_mem_pool_alloc(&mpool, &blocks[2], BYTES_TO_WRITE, K_NO_WAIT);
-	zassert_true(r[0] == 0 && r[1] == 0 && r[2] == -ENOMEM, NULL);
-	k_mem_pool_free(&blocks[0]);
-	k_mem_pool_free(&blocks[1]);
+	for (nb = 0; nb < ARRAY_SIZE(blocks); nb++) {
+		if (k_mem_pool_alloc(&mpool, &blocks[nb],
+				     BYTES_TO_WRITE, K_NO_WAIT) != 0) {
+			break;
+		}
+	}
+
+	/* Must have allocated two blocks, and pool must be full */
+	zassert_true(nb >= 2 && nb < ARRAY_SIZE(blocks), NULL);
+
+	for (int i = 0; i < nb; i++) {
+		k_mem_pool_free(&blocks[i]);
+	}
 
 	tpipe_get(&khalfpipe, K_FOREVER);
 
@@ -375,7 +462,7 @@ void test_pipe_alloc(void)
 	zassert_false(k_pipe_alloc_init(&pipe_test_alloc, 0), NULL);
 	k_pipe_cleanup(&pipe_test_alloc);
 
-	ret = k_pipe_alloc_init(&pipe_test_alloc, 1024);
+	ret = k_pipe_alloc_init(&pipe_test_alloc, 2048);
 	zassert_true(ret == -ENOMEM,
 		"resource pool max block size is not smaller then requested buffer");
 }

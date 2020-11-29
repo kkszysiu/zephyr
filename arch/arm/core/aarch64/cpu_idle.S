@@ -4,14 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @file
- * @brief ARM64 Cortex-A power management
+/*
+ * ARM64 Cortex-A power management
  */
 
 #include <toolchain.h>
 #include <linker/sections.h>
 #include <arch/cpu.h>
+
+_ASM_FILE_PROLOGUE
 
 GTEXT(arch_cpu_idle)
 SECTION_FUNC(TEXT, arch_cpu_idle)

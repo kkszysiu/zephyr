@@ -40,25 +40,11 @@ FUNC_NORETURN void z_cstart(void);
 extern FUNC_NORETURN void z_thread_entry(k_thread_entry_t entry,
 			  void *p1, void *p2, void *p3);
 
-extern void z_setup_new_thread(struct k_thread *new_thread,
-			      k_thread_stack_t *stack, size_t stack_size,
-			      k_thread_entry_t entry,
-			      void *p1, void *p2, void *p3,
-			      int prio, u32_t options, const char *name);
-
-extern void z_new_thread_init(struct k_thread *thread,
-					    char *pStack, size_t stackSize,
-					    int prio, unsigned int options);
-
-#ifdef CONFIG_USERSPACE
-/**
- * @brief Zero out BSS sections for application shared memory
- *
- * This isn't handled by any platform bss zeroing, and is called from
- * z_cstart() if userspace is enabled.
- */
-extern void z_app_shmem_bss_zero(void);
-#endif /* CONFIG_USERSPACE */
+extern char *z_setup_new_thread(struct k_thread *new_thread,
+				k_thread_stack_t *stack, size_t stack_size,
+				k_thread_entry_t entry,
+				void *p1, void *p2, void *p3,
+				int prio, uint32_t options, const char *name);
 
 /**
  * @brief Allocate some memory from the current thread's resource pool
@@ -114,21 +100,78 @@ extern void z_smp_init(void);
 
 extern void smp_timer_init(void);
 
-extern void z_early_boot_rand_get(u8_t *buf, size_t length);
+extern void z_early_boot_rand_get(uint8_t *buf, size_t length);
 
 #if CONFIG_STACK_POINTER_RANDOM
 extern int z_stack_adjust_initialized;
 #endif
 
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
-extern u32_t z_timestamp_main; /* timestamp when main task starts */
-extern u32_t z_timestamp_idle; /* timestamp when CPU goes idle */
+extern uint32_t z_timestamp_main; /* timestamp when main task starts */
+extern uint32_t z_timestamp_idle; /* timestamp when CPU goes idle */
 #endif
 
 extern struct k_thread z_main_thread;
-extern struct k_thread z_idle_thread;
-extern K_THREAD_STACK_DEFINE(z_main_stack, CONFIG_MAIN_STACK_SIZE);
-extern K_THREAD_STACK_DEFINE(z_idle_stack, CONFIG_IDLE_STACK_SIZE);
+
+
+#ifdef CONFIG_MULTITHREADING
+extern struct k_thread z_idle_threads[CONFIG_MP_NUM_CPUS];
+#endif
+extern K_KERNEL_STACK_ARRAY_DEFINE(z_interrupt_stacks, CONFIG_MP_NUM_CPUS,
+				   CONFIG_ISR_STACK_SIZE);
+
+#ifdef CONFIG_GEN_PRIV_STACKS
+extern uint8_t *z_priv_stack_find(k_thread_stack_t *stack);
+#endif
+
+#ifdef CONFIG_USERSPACE
+bool z_stack_is_user_capable(k_thread_stack_t *stack);
+
+/* Memory domain setup hook, called from z_setup_new_thread() */
+void z_mem_domain_init_thread(struct k_thread *thread);
+
+/* Memory domain teardown hook, called from z_thread_single_abort() */
+void z_mem_domain_exit_thread(struct k_thread *thread);
+
+/* This spinlock:
+ *
+ * - Protects the full set of active k_mem_domain objects and their contents
+ * - Serializes calls to arch_mem_domain_* APIs
+ *
+ * If architecture code needs to access k_mem_domain structures or the
+ * partitions they contain at any other point, this spinlock should be held.
+ * Uniprocessor systems can get away with just locking interrupts but this is
+ * not recommended.
+ */
+extern struct k_spinlock z_mem_domain_lock;
+#endif /* CONFIG_USERSPACE */
+
+#ifdef CONFIG_GDBSTUB
+struct gdb_ctx;
+
+/* Should be called by the arch layer. This is the gdbstub main loop
+ * and synchronously communicate with gdb on host.
+ */
+extern int z_gdb_main_loop(struct gdb_ctx *ctx, bool start);
+#endif
+
+#ifdef CONFIG_INSTRUMENT_THREAD_SWITCHING
+void z_thread_mark_switched_in(void);
+void z_thread_mark_switched_out(void);
+#else
+
+/**
+ * @brief Called after a thread has been selected to run
+ */
+#define z_thread_mark_switched_in()
+
+/**
+ * @brief Called before a thread has been selected to run
+ */
+
+#define z_thread_mark_switched_out()
+
+#endif /* CONFIG_INSTRUMENT_THREAD_SWITCHING */
 
 #ifdef __cplusplus
 }

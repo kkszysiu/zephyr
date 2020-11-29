@@ -24,9 +24,6 @@ K_MEM_POOL_DEFINE(app_b_resource_pool, 32, 256, 4, 4);
  */
 K_APPMEM_PARTITION_DEFINE(app_b_partition);
 
-/* Memory domain for application B, set up and installed in app_a_entry() */
-static struct k_mem_domain app_b_domain;
-
 /* Global data used by application B. By tagging with APP_B_BSS or APP_B_DATA,
  * we ensure all this gets linked into the continuous region denoted by
  * app_b_partition.
@@ -50,7 +47,7 @@ static void processor_thread(void *p1, void *p2, void *p3)
 	 * meanwhile data coming in from the driver will be buffered in the
 	 * incoming queue/
 	 */
-	k_sleep(K_MSEC(4000));
+	k_sleep(K_MSEC(400));
 
 	/* Consume data blobs from shared_queue_incoming.
 	 * Do some processing, and the put the processed data
@@ -64,7 +61,7 @@ static void processor_thread(void *p1, void *p2, void *p3)
 		 * a sandboxed App B
 		 */
 		LOG_DBG("processing payload #%d", process_count);
-		k_busy_wait(1000000);
+		k_busy_wait(100000);
 		process_count++;
 		LOG_INF("processing payload #%d complete", process_count);
 
@@ -79,20 +76,12 @@ static void processor_thread(void *p1, void *p2, void *p3)
 
 void app_b_entry(void *p1, void *p2, void *p3)
 {
-	struct k_mem_partition *parts[] = {
-#if Z_LIBC_PARTITION_EXISTS
-		&z_libc_partition,
-#endif
-		&app_b_partition, &shared_partition
-	};
-
-	/* Initialize a memory domain with the specified partitions
-	 * and add ourself to this domain. We need access to our own
-	 * partition, the shared partition, and any common libc partition
-	 * if it exists.
+	/* Much like how we are reusing the main thread as this application's
+	 * processor thread, we will re-use the default memory domain as the
+	 * domain for application B.
 	 */
-	k_mem_domain_init(&app_b_domain, ARRAY_SIZE(parts), parts);
-	k_mem_domain_add_thread(&app_b_domain, k_current_get());
+	k_mem_domain_add_partition(&k_mem_domain_default, &app_b_partition);
+	k_mem_domain_add_partition(&k_mem_domain_default, &shared_partition);
 
 	/* Assign a resource pool to serve for kernel-side allocations on
 	 * behalf of application A. Needed for k_queue_alloc_append().

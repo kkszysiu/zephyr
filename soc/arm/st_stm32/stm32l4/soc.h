@@ -27,20 +27,10 @@
 #include <stm32l4xx.h>
 
 /* Add include for DTS generated information */
-#include <devicetree.h>
+#include <st_stm32_dt.h>
 
 #ifdef CONFIG_EXTI_STM32
 #include <stm32l4xx_ll_exti.h>
-#endif
-
-#ifdef CONFIG_GPIO_STM32
-/* Required to enable VDDio2 for port G */
-#include <stm32l4xx_ll_pwr.h>
-#endif
-
-#ifdef CONFIG_SERIAL_HAS_DRIVER
-#include <stm32l4xx_ll_usart.h>
-#include <stm32l4xx_ll_lpuart.h>
 #endif
 
 #ifdef CONFIG_CLOCK_CONTROL_STM32_CUBE
@@ -84,6 +74,8 @@
 
 #ifdef CONFIG_GPIO_STM32
 #include <stm32l4xx_ll_gpio.h>
+/* Required to enable VDDio2 for port G */
+#include <stm32l4xx_ll_pwr.h>
 #endif
 
 #ifdef CONFIG_ADC_STM32
@@ -98,6 +90,10 @@
 #include <stm32l4xx_ll_lptim.h>
 #include <stm32l4xx_ll_system.h>
 #endif
+
+#ifdef CONFIG_PWM_STM32
+#include <stm32l4xx_ll_tim.h>
+#endif /* CONFIG_PWM_STM32 */
 
 #endif /* !_ASMLANGUAGE */
 

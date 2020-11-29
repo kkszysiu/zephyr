@@ -7,12 +7,12 @@ config BOARD
 	default "musca_a" if TRUSTED_EXECUTION_SECURE || !TRUSTED_EXECUTION_NONSECURE
 	default "musca_a_nonsecure"
 
+config BOARD_DEPRECATED_RELEASE
+	default "v2.6.0"
+
 if GPIO
 
 config GPIO_CMSDK_AHB
-	default y
-
-config GPIO_CMSDK_AHB_PORT0
 	default y
 
 endif
@@ -42,5 +42,12 @@ config TIMER_DTMR_CMSDK_APB
 	default y
 
 endif # COUNTER
+
+if IPM
+
+config IPM_MHU
+	default y
+
+endif # IPM
 
 endif

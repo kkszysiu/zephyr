@@ -23,18 +23,10 @@
 
 #include <stm32f3xx.h>
 
-/* ARM CMSIS definitions must be included before kernel_includes.h.
- * Therefore, it is essential to include kernel_includes.h after including
- * core SOC-specific headers.
- */
-#include <kernel_includes.h>
+#include <st_stm32_dt.h>
 
 #ifdef CONFIG_EXTI_STM32
 #include <stm32f3xx_ll_exti.h>
-#endif
-
-#ifdef CONFIG_SERIAL_HAS_DRIVER
-#include <stm32f3xx_ll_usart.h>
 #endif
 
 #ifdef CONFIG_CLOCK_CONTROL_STM32_CUBE
@@ -81,6 +73,10 @@
 #ifdef CONFIG_HWINFO_STM32
 #include <stm32f3xx_ll_utils.h>
 #endif
+
+#ifdef CONFIG_PWM_STM32
+#include <stm32f3xx_ll_tim.h>
+#endif /* CONFIG_PWM_STM32 */
 
 #endif /* !_ASMLANGUAGE */
 

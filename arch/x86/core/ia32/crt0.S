@@ -26,7 +26,7 @@
 	GTEXT(z_x86_prep_c)
 
 	GDATA(_idt_base_address)
-	GDATA(_interrupt_stack)
+	GDATA(z_interrupt_stacks)
 	GDATA(z_x86_idt)
 #ifndef CONFIG_GDT_DYNAMIC
 	GDATA(_gdt)
@@ -64,11 +64,7 @@ SECTION_FUNC(TEXT_START, __start)
 	 */
 #if CONFIG_SET_GDT
 	lgdt	_gdt_rom		/* load 32-bit operand size GDT */
-#endif
 
-
-
-#ifdef CONFIG_SET_GDT
 	/* If we set our own GDT, update the segment registers as well.
 	 */
 	movw	$DATA_SEG, %ax	/* data segment selector (entry = 3) */
@@ -84,8 +80,7 @@ SECTION_FUNC(TEXT_START, __start)
 __csSet:
 #endif /* CONFIG_SET_GDT */
 
-
-#if !defined(CONFIG_FLOAT)
+#if !defined(CONFIG_FPU)
 	/*
 	 * Force an #NM exception for floating point instructions
 	 * since FP support hasn't been configured
@@ -126,7 +121,7 @@ __csSet:
 
   #endif /* CONFIG_SSE */
 
-#endif /* !CONFIG_FLOAT */
+#endif /* !CONFIG_FPU */
 
 	/*
 	 * Set the stack pointer to the area used for the interrupt stack.
@@ -135,8 +130,8 @@ __csSet:
 	 * dual-purposing of this area of memory is safe since
 	 * interrupts are disabled until the first context switch.
 	 *
-	 * kernel/init.c enforces that the _interrupt_stack pointer and
-	 * the ISR stack size are some multiple of STACK_ALIGN, which
+	 * kernel/init.c enforces that the z_interrupt_stacks pointer and
+	 * the ISR stack size are some multiple of ARCH_STACK_PTR_ALIGN, which
 	 * is at least 4.
 	 *
 	 * This is also used to call the _sys_resume_from_deep_sleep()
@@ -150,7 +145,7 @@ __csSet:
 	 */
 #ifdef CONFIG_INIT_STACKS
 	movl $0xAAAAAAAA, %eax
-	leal _interrupt_stack, %edi
+	leal z_interrupt_stacks, %edi
 #ifdef CONFIG_X86_STACK_PROTECTION
 	addl $4096, %edi
 #endif
@@ -159,7 +154,7 @@ __csSet:
 	rep  stosl
 #endif
 
-	movl	$_interrupt_stack, %esp
+	movl	$z_interrupt_stacks, %esp
 #ifdef CONFIG_X86_STACK_PROTECTION
 	/* In this configuration, all stacks, including IRQ stack, are declared
 	 * with a 4K non-present guard page preceding the stack buffer
@@ -205,7 +200,6 @@ __csSet:
 
 	call	_x86_data_copy
 #endif /* CONFIG_USERSPACE */
-
 #endif /* CONFIG_XIP */
 
 	/*
@@ -235,7 +229,34 @@ __csSet:
 #endif
 	lidt	z_x86_idt		/* load 32-bit operand size IDT */
 
+#ifdef CONFIG_X86_MMU
+	/* Install page tables */
+	movl $z_x86_kernel_ptables, %eax
+	movl %eax, %cr3
+
+#ifdef CONFIG_X86_PAE
+	/* Enable PAE */
+	movl %cr4, %eax
+	orl $CR4_PAE, %eax
+	movl %eax, %cr4
+
+	/* IA32_EFER NXE bit set */
+	movl $0xC0000080, %ecx
+	rdmsr
+	orl $0x800, %eax
+	wrmsr
+#endif /* CONFIG_X86_PAE */
+
+	/* Enable paging (CR0.PG, bit 31) / write protect (CR0.WP, bit 16) */
+	movl %cr0, %eax
+	orl $(CR0_PG | CR0_WP), %eax
+	movl %eax, %cr0
+#endif /* CONFIG_X86_MMU */
+
 #ifdef CONFIG_LOAPIC
+	/* For BSP, cpu_number is 0 */
+	xorl	%eax, %eax
+	pushl	%eax
 	call	z_loapic_enable
 #endif
 
@@ -305,30 +326,6 @@ dataWords:
 	ret
 #endif /* CONFIG_XIP */
 
-#ifdef CONFIG_X86_MMU
-z_x86_enable_paging:
-	/* load the page directory address into the registers*/
-	movl $z_x86_kernel_ptables, %eax
-	movl %eax, %cr3
-
-	/* Enable PAE */
-	movl %cr4, %eax
-	orl $CR4_PAE, %eax
-	movl %eax, %cr4
-
-	/* IA32_EFER NXE bit set */
-	movl $0xC0000080, %ecx
-	rdmsr
-	orl $0x800, %eax
-	wrmsr
-
-	/* Enable paging (CR0.PG, bit 31) / write protect (CR0.WP, bit 16) */
-	movl %cr0, %eax
-	orl $(CR0_PG | CR0_WP), %eax
-	movl %eax, %cr0
-
-	ret
-#endif /* CONFIG_X86_MMU */
 
 #if defined(CONFIG_SSE)
 

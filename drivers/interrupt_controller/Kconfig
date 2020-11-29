@@ -48,6 +48,13 @@ config NUCLEI_ECLIC
 	help
 	  nuclei-eclic
 
+config LEON_IRQMP
+	bool "GRLIB IRQMP interrupt controller"
+	default y
+	depends on SOC_SPARC_LEON
+	help
+	  GRLIB IRQMP and IRQAMP
+
 source "drivers/interrupt_controller/Kconfig.multilevel"
 
 source "drivers/interrupt_controller/Kconfig.loapic"
@@ -64,6 +71,10 @@ source "drivers/interrupt_controller/Kconfig.sam0"
 
 source "drivers/interrupt_controller/Kconfig.gic"
 
+<<<<<<< HEAD
 source "drivers/interrupt_controller/Kconfig.gd32"
+=======
+source "drivers/interrupt_controller/Kconfig.npcx"
+>>>>>>> origin/master
 
 endmenu

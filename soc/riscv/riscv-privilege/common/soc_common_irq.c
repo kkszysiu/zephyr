@@ -13,8 +13,7 @@
 
 void riscv_irq_enable(unsigned int irq)
 {
-	u32_t mie;
-
+	uint32_t mie;
 	/*
 	 * CSR mie register is updated using atomic instruction csrrs
 	 * (atomic read and set bits in CSR register)
@@ -26,7 +25,7 @@ void riscv_irq_enable(unsigned int irq)
 
 void riscv_irq_disable(unsigned int irq)
 {
-	u32_t mie;
+	uint32_t mie;
 
 	/*
 	 * Use atomic instruction csrrc to disable device interrupt in mie CSR.
@@ -44,7 +43,7 @@ void riscv_irq_priority_set(unsigned int irq, unsigned int prio)
 
 int riscv_irq_is_enabled(unsigned int irq)
 {
-	u32_t mie;
+	uint32_t mie;
 
 	__asm__ volatile ("csrr %0, mie" : "=r" (mie));
 

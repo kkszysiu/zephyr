@@ -43,6 +43,11 @@
 	};
 };
 
+&sim {
+	pllfll-select = <KINETIS_SIM_PLLFLLSEL_MCGPLLCLK>;
+	er32k-select = <KINETIS_SIM_ER32KSEL_RTC>;
+};
+
 &cpu0 {
 	clock-frequency = <48000000>;
 };
@@ -55,8 +60,10 @@
 	status = "okay";
 };
 
-&pwm1 {
+&ftm1 {
 	status = "okay";
+	compatible = "nxp,kinetis-ftm-pwm";
+	#pwm-cells = <3>;
 };
 
 &uart0 {
@@ -68,4 +75,24 @@
 	compatible = "nxp,kinetis-usbd";
 	status = "okay";
 	num-bidir-endpoints = <8>;
+};
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};
+
+&gpioc {
+	status = "okay";
+};
+
+&gpiod {
+	status = "okay";
+};
+
+&gpioe {
+	status = "okay";
 };

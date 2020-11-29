@@ -8,6 +8,7 @@
 #define ZEPHYR_INCLUDE_POWER_POWER_H_
 
 #include <zephyr/types.h>
+#include <power/power_state.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -285,7 +286,7 @@ void _sys_resume(void);
  * @return Power state which was entered or SYS_POWER_STATE_ACTIVE if SoC was
  *         kept in the active state.
  */
-enum power_states _sys_suspend(s32_t ticks);
+enum power_states _sys_suspend(int32_t ticks);
 
 /**
  * @brief Do any SoC or architecture specific post ops after sleep state exits.

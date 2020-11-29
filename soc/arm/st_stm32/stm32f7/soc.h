@@ -24,7 +24,7 @@
 #include <stm32f7xx.h>
 
 /* Add include for DTS generated information */
-#include <devicetree.h>
+#include <st_stm32_dt.h>
 
 #ifdef CONFIG_EXTI_STM32
 #include <stm32f7xx_ll_exti.h>
@@ -35,11 +35,8 @@
 #include <stm32f7xx_ll_bus.h>
 #include <stm32f7xx_ll_rcc.h>
 #include <stm32f7xx_ll_system.h>
+#include <stm32f7xx_ll_pwr.h>
 #endif /* CONFIG_CLOCK_CONTROL_STM32_CUBE */
-
-#ifdef CONFIG_SERIAL_HAS_DRIVER
-#include <stm32f7xx_ll_usart.h>
-#endif
 
 #ifdef CONFIG_I2C_STM32
 #include <stm32f7xx_ll_i2c.h>
@@ -82,6 +79,10 @@
 #ifdef CONFIG_HWINFO_STM32
 #include <stm32f7xx_ll_utils.h>
 #endif
+
+#ifdef CONFIG_PWM_STM32
+#include <stm32f7xx_ll_tim.h>
+#endif /* CONFIG_PWM_STM32 */
 
 #endif /* !_ASMLANGUAGE */
 
