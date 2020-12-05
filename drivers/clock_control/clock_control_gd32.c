@@ -14,7 +14,7 @@
 LOG_MODULE_REGISTER(clock_control);
 
 struct gd32_rcu_config {
-	u32_t base_address;
+	uint32_t base_address;
 };
 
 enum gd32_rcu_reg {
@@ -54,8 +54,7 @@ enum gd32_rcu_peripherals {
 	_DAC_         = (1<<29),
 };
 
-
-#define DEV_CFG(dev)  ((struct gd32_rcu_config *)(dev->config->config_info))
+#define DEV_CFG(dev)  ((struct gd32_rcu_config *)(dev->config))
 #define DEV_BASE(dev) (DEV_CFG(dev)->base_address)
 
 static inline void periph_clock_enable(enum gd32_rcu_reg addr, enum gd32_rcu_peripherals bit)
@@ -122,7 +121,7 @@ static uint32_t rcu_apb2_rate(uint32_t clksrc)
 	return 0;
 }
 
-static int gd32_rcu_get_rate(struct device *dev, clock_control_subsys_t sub_system, u32_t* rate)
+static int gd32_rcu_get_rate(struct device *dev, clock_control_subsys_t sub_system, uint32_t* rate)
 {
 	const uint32_t rate_[] = {-ENOTSUP, SystemCoreClock,
 		rcu_apb1_rate(SystemCoreClock), rcu_apb2_rate(SystemCoreClock)};
@@ -143,12 +142,17 @@ static const struct clock_control_driver_api gd32_rcu_api = {
 	//.get_status = gd32_rcu_get_status,
 };
 
-static struct gd32_rcu_config gd32_rcu_config = {
-	.base_address = DT_INST_0_GIGADEVICE_GD32_RCU_BASE_ADDRESS,
-};
 
-DEVICE_AND_API_INIT(gd32_rcu, GD32_CLOCK_CONTROL_NAME,
-		    &gd32_rcu_init,
-		    NULL, &gd32_rcu_config,
-		    PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_OBJECTS,
-		    &gd32_rcu_api);
+#define GD32_RCU_INIT(inst)						\
+	static const struct gd32_rcu_config gd32_rcu##inst##_config = {	\
+		.base_address = DT_INST_REG_ADDR(inst)			\
+	};								\
+									\
+	DEVICE_AND_API_INIT(gd32_rcu##inst, DT_INST_LABEL(inst),	\
+			    &gd32_rcu_init,				\
+			    NULL, &gd32_rcu##inst##_config,		\
+			    PRE_KERNEL_1,				\
+			    CONFIG_KERNEL_INIT_PRIORITY_OBJECTS,	\
+			    &gd32_rcu_api);
+
+DT_INST_FOREACH_STATUS_OKAY(GD32_RCU_INIT)
