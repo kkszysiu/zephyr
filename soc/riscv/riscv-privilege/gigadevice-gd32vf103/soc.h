@@ -44,8 +44,8 @@
 #define GD32_CLOCK_CONTROL_NAME "gd32-rcu"
 
 struct gd32_pclken {
-	u32_t bus;
-	u32_t enr;
+	uint32_t bus;
+	uint32_t enr;
 };
 
 #define ARCH_IRQ_CONNECT(irq_p, priority_p, isr_p, isr_param_p, flags_p) \

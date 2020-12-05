@@ -32,7 +32,6 @@
 /* Exception code Mask */
 #endif
 /* ECALL exception number */
-#define SOC_MCAUSE_ECALL_EXP         RISCV_MACHINE_ECALL_EXP
 #define SOC_MCAUSE_EXP_MASK          CONFIG_RISCV_SOC_MCAUSE_EXCEPTION_MASK
 
 /* SOC-Specific EXIT ISR command */
