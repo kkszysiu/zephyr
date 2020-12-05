@@ -231,7 +231,7 @@ struct gpio_gd32_config {
 	/* gpio_driver_config needs to be first */
 	struct gpio_driver_config common;
 	/* port base address */
-	u32_t *base;
+	uint32_t *base;
 	/* IO port */
 	int port;
 	struct gd32_pclken pclken;
@@ -244,7 +244,7 @@ struct gpio_gd32_data {
 	/* gpio_driver_data needs to be first */
 	struct gpio_driver_data common;
 	/* Enabled INT pins generating a cb */
-	u32_t cb_pins;
+	uint32_t cb_pins;
 	/* user ISR cb */
 	sys_slist_t cb;
 };
