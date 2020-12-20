@@ -143,7 +143,6 @@ uint8_t ll_create_connection(uint16_t scan_interval, uint16_t scan_window,
 	lll->adv_addr_type = peer_addr_type;
 	memcpy(lll->adv_addr, peer_addr, BDADDR_SIZE);
 	lll->conn_timeout = timeout;
-	lll->conn_ticks_slot = 0; /* TODO: */
 
 	conn_lll = &conn->lll;
 
@@ -182,10 +181,10 @@ uint8_t ll_create_connection(uint16_t scan_interval, uint16_t scan_window,
 #endif /* CONFIG_BT_CTLR_DATA_LENGTH */
 
 #if defined(CONFIG_BT_CTLR_PHY)
-	conn_lll->phy_tx = BIT(0);
+	conn_lll->phy_tx = PHY_1M;
 	conn_lll->phy_flags = 0;
-	conn_lll->phy_tx_time = BIT(0);
-	conn_lll->phy_rx = BIT(0);
+	conn_lll->phy_tx_time = PHY_1M;
+	conn_lll->phy_rx = PHY_1M;
 #endif /* CONFIG_BT_CTLR_PHY */
 
 #if defined(CONFIG_BT_CTLR_CONN_RSSI)
@@ -287,7 +286,6 @@ uint8_t ll_create_connection(uint16_t scan_interval, uint16_t scan_window,
 	conn->llcp_phy.pause_tx = 0U;
 	conn->phy_pref_tx = ull_conn_default_phy_tx_get();
 	conn->phy_pref_rx = ull_conn_default_phy_rx_get();
-	conn->phy_pref_flags = 0U;
 #endif /* CONFIG_BT_CTLR_PHY */
 
 	conn->tx_head = conn->tx_ctrl = conn->tx_ctrl_last =
@@ -354,7 +352,7 @@ uint8_t ll_connect_enable(uint8_t is_coded_included)
 	}
 
 	if (!is_coded_included ||
-	    (scan->lll.phy & BIT(0))) {
+	    (scan->lll.phy & PHY_1M)) {
 		err = ull_scan_enable(scan);
 		if (err) {
 			return err;
@@ -751,6 +749,9 @@ void ull_master_ticker_cb(uint32_t ticks_at_expire, uint32_t remainder, uint16_t
 		return;
 	}
 
+#if defined(CONFIG_BT_CTLR_CONN_META)
+	conn->common.is_must_expire = (lazy == TICKER_LAZY_MUST_EXPIRE);
+#endif
 	/* If this is a must-expire callback, LLCP state machine does not need
 	 * to know. Will be called with lazy > 0 when scheduled in air.
 	 */

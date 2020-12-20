@@ -13,6 +13,7 @@ LOG_MODULE_REGISTER(spi_ll_stm32);
 #include <sys/util.h>
 #include <kernel.h>
 #include <soc.h>
+#include <stm32_ll_spi.h>
 #include <errno.h>
 #include <drivers/spi.h>
 #include <toolchain.h>
@@ -855,7 +856,7 @@ static void spi_stm32_irq_config_func_##id(const struct device *dev)		\
 {									\
 	IRQ_CONNECT(DT_INST_IRQN(id),					\
 		    DT_INST_IRQ(id, priority),				\
-		    spi_stm32_isr, DEVICE_GET(spi_stm32_##id), 0);	\
+		    spi_stm32_isr, DEVICE_DT_INST_GET(id), 0);		\
 	irq_enable(DT_INST_IRQN(id));					\
 }
 #else
@@ -939,8 +940,7 @@ static struct spi_stm32_data spi_stm32_dev_data_##id = {		\
 	SPI_DMA_STATUS_SEM(id)						\
 };									\
 									\
-DEVICE_AND_API_INIT(spi_stm32_##id, DT_INST_LABEL(id),			\
-		    &spi_stm32_init,					\
+DEVICE_DT_INST_DEFINE(id, &spi_stm32_init, device_pm_control_nop,	\
 		    &spi_stm32_dev_data_##id, &spi_stm32_cfg_##id,	\
 		    POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,		\
 		    &api_funcs);					\
